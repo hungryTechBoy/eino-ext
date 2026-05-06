@@ -95,6 +95,7 @@ func (c *client) addBaseHeaders(req *http.Request) {
 	req.Header.Add("x_langfuse_public_key", c.publicKey)
 	req.Header.Add("x_langfuse_sdk_name", "eino")
 	req.Header.Add("x_langfuse_sdk_version", c.sdkVersion)
+	req.Header.Add("x-langfuse-ingestion-version", "4")
 }
 
 func (c *client) batchIngestion(batch []*event, metadata map[string]string) error {
