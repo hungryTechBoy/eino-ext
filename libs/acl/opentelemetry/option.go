@@ -43,6 +43,9 @@ type config struct {
 	exportEndpoint string
 	exportHeaders  map[string]string
 
+	traceExportProtocol exportProtocol
+	traceExportURLPath  string
+
 	resource          *resource.Resource
 	sdkTracerProvider *sdktrace.TracerProvider
 
@@ -53,6 +56,13 @@ type config struct {
 
 	meterProvider *metric.MeterProvider
 }
+
+type exportProtocol string
+
+const (
+	exportProtocolGRPC exportProtocol = "grpc"
+	exportProtocolHTTP exportProtocol = "http"
+)
 
 func newConfig(opts []Option) *config {
 	cfg := defaultConfig()
@@ -66,9 +76,10 @@ func newConfig(opts []Option) *config {
 
 func defaultConfig() *config {
 	return &config{
-		enableTracing: true,
-		enableMetrics: true,
-		sampler:       sdktrace.AlwaysSample(),
+		enableTracing:       true,
+		enableMetrics:       true,
+		sampler:             sdktrace.AlwaysSample(),
+		traceExportProtocol: exportProtocolGRPC,
 	}
 }
 
@@ -118,6 +129,20 @@ func WithResource(resource *resource.Resource) Option {
 func WithExportEndpoint(endpoint string) Option {
 	return option(func(cfg *config) {
 		cfg.exportEndpoint = endpoint
+	})
+}
+
+// WithExportProtocolHTTP configures OTLP/HTTP for trace export.
+func WithExportProtocolHTTP() Option {
+	return option(func(cfg *config) {
+		cfg.traceExportProtocol = exportProtocolHTTP
+	})
+}
+
+// WithTraceExportURLPath configures OTLP/HTTP trace path.
+func WithTraceExportURLPath(path string) Option {
+	return option(func(cfg *config) {
+		cfg.traceExportURLPath = path
 	})
 }
 

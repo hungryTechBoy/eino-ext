@@ -25,6 +25,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -73,25 +74,10 @@ func NewOpenTelemetryProvider(opts ...Option) (*OtelProvider, error) {
 
 	// Tracing
 	if cfg.enableTracing {
-		// trace client
-		var traceClientOpts []otlptracegrpc.Option
-		if cfg.exportEndpoint != "" {
-			traceClientOpts = append(traceClientOpts, otlptracegrpc.WithEndpoint(cfg.exportEndpoint))
-		}
-		if len(cfg.exportHeaders) > 0 {
-			traceClientOpts = append(traceClientOpts, otlptracegrpc.WithHeaders(cfg.exportHeaders))
-		}
-		if cfg.exportInsecure {
-			traceClientOpts = append(traceClientOpts, otlptracegrpc.WithInsecure())
-		}
-
 		// trace provider
 		tracerProvider = cfg.sdkTracerProvider
 		if tracerProvider == nil {
-			traceClient := otlptracegrpc.NewClient(traceClientOpts...)
-
-			// trace exporter
-			traceExp, err := otlptrace.New(ctx, traceClient)
+			traceExp, err := newTraceExporter(ctx, cfg)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create otlp trace exporter: %v", err)
 			}
@@ -139,6 +125,39 @@ func NewOpenTelemetryProvider(opts ...Option) (*OtelProvider, error) {
 		TracerProvider: tracerProvider,
 		MeterProvider:  meterProvider,
 	}, nil
+}
+
+func newTraceExporter(ctx context.Context, cfg *config) (*otlptrace.Exporter, error) {
+	if cfg.traceExportProtocol == exportProtocolHTTP {
+		var traceHTTPOpts []otlptracehttp.Option
+		if cfg.exportEndpoint != "" {
+			traceHTTPOpts = append(traceHTTPOpts, otlptracehttp.WithEndpoint(cfg.exportEndpoint))
+		}
+		if cfg.traceExportURLPath != "" {
+			traceHTTPOpts = append(traceHTTPOpts, otlptracehttp.WithURLPath(cfg.traceExportURLPath))
+		}
+		if len(cfg.exportHeaders) > 0 {
+			traceHTTPOpts = append(traceHTTPOpts, otlptracehttp.WithHeaders(cfg.exportHeaders))
+		}
+		if cfg.exportInsecure {
+			traceHTTPOpts = append(traceHTTPOpts, otlptracehttp.WithInsecure())
+		}
+		return otlptracehttp.New(ctx, traceHTTPOpts...)
+	}
+
+	var traceClientOpts []otlptracegrpc.Option
+	if cfg.exportEndpoint != "" {
+		traceClientOpts = append(traceClientOpts, otlptracegrpc.WithEndpoint(cfg.exportEndpoint))
+	}
+	if len(cfg.exportHeaders) > 0 {
+		traceClientOpts = append(traceClientOpts, otlptracegrpc.WithHeaders(cfg.exportHeaders))
+	}
+	if cfg.exportInsecure {
+		traceClientOpts = append(traceClientOpts, otlptracegrpc.WithInsecure())
+	}
+
+	traceClient := otlptracegrpc.NewClient(traceClientOpts...)
+	return otlptrace.New(ctx, traceClient)
 }
 
 func newResource(cfg *config) *resource.Resource {

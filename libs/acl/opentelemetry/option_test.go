@@ -163,6 +163,26 @@ func Test_WithExportEndpoint(t *testing.T) {
 	})
 }
 
+func Test_WithExportProtocolHTTP(t *testing.T) {
+	mockey.PatchConvey("Test WithExportProtocolHTTP", t, func() {
+		cfg := &config{}
+		opt := WithExportProtocolHTTP()
+		opt.apply(cfg)
+
+		convey.So(cfg.traceExportProtocol, convey.ShouldEqual, exportProtocolHTTP)
+	})
+}
+
+func Test_WithTraceExportURLPath(t *testing.T) {
+	mockey.PatchConvey("Test WithTraceExportURLPath", t, func() {
+		cfg := &config{}
+		opt := WithTraceExportURLPath("/api/public/otel/v1/traces")
+		opt.apply(cfg)
+
+		convey.So(cfg.traceExportURLPath, convey.ShouldEqual, "/api/public/otel/v1/traces")
+	})
+}
+
 func Test_WithEnableTracing(t *testing.T) {
 	mockey.PatchConvey("Test WithEnableTracing", t, func() {
 		cfg := &config{}

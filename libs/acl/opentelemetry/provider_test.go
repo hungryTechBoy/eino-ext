@@ -17,12 +17,17 @@
 package opentelemetry
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func Test_newResource(t *testing.T) {
@@ -77,5 +82,48 @@ func Test_newResource(t *testing.T) {
 				assert.NotContains(t, got.Attributes(), unwantedResource)
 			}
 		})
+	}
+}
+
+func TestNewOpenTelemetryProvider_TraceHTTP(t *testing.T) {
+	requests := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	parsed, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("url.Parse() err = %v", err)
+	}
+
+	provider, err := NewOpenTelemetryProvider(
+		WithEnableMetrics(false),
+		WithExportProtocolHTTP(),
+		WithExportEndpoint(parsed.Host),
+		WithTraceExportURLPath("/api/public/otel/v1/traces"),
+		WithInsecure(),
+	)
+	if err != nil {
+		t.Fatalf("NewOpenTelemetryProvider() err = %v, want nil", err)
+	}
+	if provider == nil || provider.TracerProvider == nil {
+		t.Fatalf("provider or tracer provider is nil")
+	}
+
+	_, span := provider.TracerProvider.Tracer("test").Start(context.Background(), "root", trace.WithSpanKind(trace.SpanKindInternal))
+	span.End()
+
+	if err := provider.Shutdown(context.Background()); err != nil {
+		t.Fatalf("provider.Shutdown() err = %v", err)
+	}
+
+	select {
+	case path := <-requests:
+		assert.Equal(t, "/api/public/otel/v1/traces", path)
+	default:
+		t.Fatalf("expected at least one HTTP trace export request")
 	}
 }
