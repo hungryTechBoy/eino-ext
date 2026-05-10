@@ -1,4 +1,4 @@
-module github.com/cloudwego/eino-ext/libs/acl/opentelemetry
+module github.com/hungryTechBoy/eino-ext/libs/acl/opentelemetry
 
 go 1.23.0
 

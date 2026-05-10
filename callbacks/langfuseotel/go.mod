@@ -1,11 +1,11 @@
-module github.com/cloudwego/eino-ext/callbacks/langfuseotel
+module github.com/hungryTechBoy/eino-ext/callbacks/langfuseotel
 
 go 1.23.0
 
 require (
 	github.com/bytedance/sonic v1.14.1
 	github.com/cloudwego/eino v0.6.0
-	github.com/cloudwego/eino-ext/libs/acl/opentelemetry v0.0.0
+	github.com/hungryTechBoy/eino-ext/libs/acl/opentelemetry v0.0.0
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.34.0
 	go.opentelemetry.io/otel/sdk v1.34.0
@@ -61,4 +61,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/cloudwego/eino-ext/libs/acl/opentelemetry => ../../libs/acl/opentelemetry
+replace github.com/hungryTechBoy/eino-ext/libs/acl/opentelemetry => ../../libs/acl/opentelemetry

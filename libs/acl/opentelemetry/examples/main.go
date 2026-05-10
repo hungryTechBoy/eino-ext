@@ -19,7 +19,7 @@ package examples
 import (
 	"context"
 
-	"github.com/cloudwego/eino-ext/libs/acl/opentelemetry"
+	"github.com/hungryTechBoy/eino-ext/libs/acl/opentelemetry"
 )
 
 func main() {

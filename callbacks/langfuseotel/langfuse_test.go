@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	aclotel "github.com/cloudwego/eino-ext/libs/acl/opentelemetry"
+	aclotel "github.com/hungryTechBoy/eino-ext/libs/acl/opentelemetry"
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components"
 	"github.com/cloudwego/eino/components/model"

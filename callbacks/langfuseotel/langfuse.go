@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic"
-	aclotel "github.com/cloudwego/eino-ext/libs/acl/opentelemetry"
+	aclotel "github.com/hungryTechBoy/eino-ext/libs/acl/opentelemetry"
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components"
 	"github.com/cloudwego/eino/schema"
@@ -23,7 +23,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const scopeName = "github.com/cloudwego/eino-ext/callbacks/langfuseotel"
+const scopeName = "github.com/hungryTechBoy/eino-ext/callbacks/langfuseotel"
 
 type Config struct {
 	Host      string
