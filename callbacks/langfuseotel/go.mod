@@ -5,7 +5,7 @@ go 1.23.0
 require (
 	github.com/bytedance/sonic v1.14.1
 	github.com/cloudwego/eino v0.6.0
-	github.com/hungryTechBoy/eino-ext/libs/acl/opentelemetry v0.0.0
+	github.com/hungryTechBoy/eino-ext/libs/acl/opentelemetry v0.0.0-20260510020827-eb8d182ea7d5
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.34.0
 	go.opentelemetry.io/otel/sdk v1.34.0
@@ -60,5 +60,3 @@ require (
 	google.golang.org/protobuf v1.36.3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/hungryTechBoy/eino-ext/libs/acl/opentelemetry => ../../libs/acl/opentelemetry
