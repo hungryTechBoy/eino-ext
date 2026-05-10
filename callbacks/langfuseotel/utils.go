@@ -1,12 +1,19 @@
 package langfuseotel
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/cloudwego/eino/callbacks"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
+
+type groundedAnswerPayload struct {
+	Answer           string   `json:"answer"`
+	SelectedChunkIDs []string `json:"selected_chunk_ids"`
+}
 
 func convModelCallbackInput(in []callbacks.CallbackInput) []*model.CallbackInput {
 	ret := make([]*model.CallbackInput, len(in))
@@ -115,4 +122,121 @@ func getName(info *callbacks.RunInfo) string {
 		return info.Name
 	}
 	return info.Type + string(info.Component)
+}
+
+func extractOutputText(message *schema.Message) string {
+	if message == nil {
+		return ""
+	}
+	if answer, _, ok := extractGroundedAnswer(message); ok {
+		return answer
+	}
+	return strings.TrimSpace(message.Content)
+}
+
+func extractObservationOutput(message *schema.Message) string {
+	if message == nil {
+		return ""
+	}
+	payload := map[string]any{}
+	if role := strings.TrimSpace(string(message.Role)); role != "" {
+		payload["role"] = role
+	}
+	if content := strings.TrimSpace(message.Content); content != "" {
+		payload["content"] = content
+	}
+	if reasoning := strings.TrimSpace(message.ReasoningContent); reasoning != "" {
+		payload["reasoning_content"] = reasoning
+	}
+	if message.ResponseMeta != nil {
+		responseMeta := map[string]any{}
+		if finishReason := strings.TrimSpace(message.ResponseMeta.FinishReason); finishReason != "" {
+			responseMeta["finish_reason"] = finishReason
+		}
+		if message.ResponseMeta.Usage != nil {
+			responseMeta["usage"] = message.ResponseMeta.Usage
+		}
+		if len(responseMeta) > 0 {
+			payload["response_meta"] = responseMeta
+		}
+	}
+	toolCalls := make([]map[string]any, 0, len(message.ToolCalls))
+	for _, toolCall := range message.ToolCalls {
+		item := map[string]any{}
+		if toolCall.ID != "" {
+			item["id"] = toolCall.ID
+		}
+		if toolCall.Type != "" {
+			item["type"] = toolCall.Type
+		}
+		function := map[string]any{}
+		if toolCall.Function.Name != "" {
+			function["name"] = toolCall.Function.Name
+		}
+		if strings.TrimSpace(toolCall.Function.Arguments) != "" {
+			var parsed any
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &parsed); err == nil {
+				function["arguments"] = parsed
+			} else {
+				function["arguments"] = toolCall.Function.Arguments
+			}
+		}
+		if len(function) > 0 {
+			item["function"] = function
+		}
+		toolCalls = append(toolCalls, item)
+	}
+	if len(toolCalls) > 0 {
+		payload["tool_calls"] = toolCalls
+	}
+	if len(payload) == 0 {
+		return extractOutputText(message)
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return extractOutputText(message)
+	}
+	return string(raw)
+}
+
+func extractGroundedAnswer(message *schema.Message) (string, []string, bool) {
+	if message == nil {
+		return "", nil, false
+	}
+	for _, toolCall := range message.ToolCalls {
+		if toolCall.Function.Name != "submit_grounded_answer" {
+			continue
+		}
+		var payload groundedAnswerPayload
+		if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &payload); err != nil {
+			continue
+		}
+		answer := strings.TrimSpace(payload.Answer)
+		if answer == "" {
+			continue
+		}
+		return answer, payload.SelectedChunkIDs, true
+	}
+	return "", nil, false
+}
+
+func extractObservationMetadata(message *schema.Message) map[string]string {
+	metadata := make(map[string]string)
+	if message == nil {
+		return metadata
+	}
+	if message.ResponseMeta != nil {
+		if finishReason := strings.TrimSpace(message.ResponseMeta.FinishReason); finishReason != "" {
+			metadata["finish_reason"] = finishReason
+		}
+	}
+	if requestID, ok := message.Extra["openai-request-id"].(string); ok && strings.TrimSpace(requestID) != "" {
+		metadata["openai_request_id"] = strings.TrimSpace(requestID)
+	}
+	if _, chunkIDs, ok := extractGroundedAnswer(message); ok && len(chunkIDs) > 0 {
+		if raw, err := json.Marshal(chunkIDs); err == nil {
+			metadata["selected_chunk_ids"] = string(raw)
+		}
+	}
+	return metadata
 }

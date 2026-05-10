@@ -324,18 +324,14 @@ func (c *CallbackHandler) setInputAttributes(span trace.Span, info *callbacks.Ru
 				span.SetAttributes(attribute.String("gen_ai.request.model", config.Model))
 			}
 			c.setMessageAttributes(span, messages, isRoot)
-			if len(extra) > 0 {
-				if raw, ok := marshalToString(extra); ok {
-					span.SetAttributes(attribute.String("gen_ai.request.extra", raw))
-				}
-			}
+			_ = extra
 			return
 		}
 	}
 	if raw, ok := marshalToString(input); ok {
-		span.SetAttributes(attribute.String("eino.input", raw))
+		span.SetAttributes(attribute.String("langfuse.observation.input", raw))
 		if isRoot {
-			span.SetAttributes(attribute.String("gen_ai.input", raw))
+			span.SetAttributes(attribute.String("langfuse.trace.input", raw))
 		}
 	}
 }
@@ -352,18 +348,14 @@ func (c *CallbackHandler) setOutputAttributes(span trace.Span, info *callbacks.R
 					attribute.Int("gen_ai.usage.total_tokens", usage.TotalTokens),
 				)
 			}
-			if len(extra) > 0 {
-				if raw, ok := marshalToString(extra); ok {
-					span.SetAttributes(attribute.String("gen_ai.response.extra", raw))
-				}
-			}
+			_ = extra
 			return
 		}
 	}
 	if raw, ok := marshalToString(output); ok {
-		span.SetAttributes(attribute.String("eino.output", raw))
+		span.SetAttributes(attribute.String("langfuse.observation.output", raw))
 		if isRoot {
-			span.SetAttributes(attribute.String("gen_ai.output", raw))
+			span.SetAttributes(attribute.String("langfuse.trace.output", raw))
 		}
 	}
 }
@@ -376,16 +368,12 @@ func (c *CallbackHandler) setStreamInputAttributes(span trace.Span, info *callba
 				span.SetAttributes(attribute.String("gen_ai.request.model", config.Model))
 			}
 			c.setMessageAttributes(span, messages, true)
-			if len(extra) > 0 {
-				if raw, ok := marshalToString(extra); ok {
-					span.SetAttributes(attribute.String("gen_ai.request.extra", raw))
-				}
-			}
+			_ = extra
 			return
 		}
 	}
 	if raw, ok := marshalToString(inputs); ok {
-		span.SetAttributes(attribute.String("eino.stream.input", raw))
+		span.SetAttributes(attribute.String("langfuse.observation.input", raw))
 	}
 }
 
@@ -401,16 +389,12 @@ func (c *CallbackHandler) setStreamOutputAttributes(span trace.Span, info *callb
 					attribute.Int("gen_ai.usage.total_tokens", usage.TotalTokens),
 				)
 			}
-			if len(extra) > 0 {
-				if raw, ok := marshalToString(extra); ok {
-					span.SetAttributes(attribute.String("gen_ai.response.extra", raw))
-				}
-			}
+			_ = extra
 			return
 		}
 	}
 	if raw, ok := marshalToString(outputs); ok {
-		span.SetAttributes(attribute.String("eino.stream.output", raw))
+		span.SetAttributes(attribute.String("langfuse.observation.output", raw))
 	}
 }
 
@@ -424,9 +408,12 @@ func (c *CallbackHandler) setMessageAttributes(span trace.Span, messages []*sche
 			attribute.String(fmt.Sprintf("gen_ai.prompt.%d.content", i), message.Content),
 		)
 	}
+	if raw, ok := marshalToString(messages); ok {
+		span.SetAttributes(attribute.String("langfuse.observation.input", raw))
+	}
 	if isRoot {
 		if raw, ok := marshalToString(messages); ok {
-			span.SetAttributes(attribute.String("gen_ai.input", raw))
+			span.SetAttributes(attribute.String("langfuse.trace.input", raw))
 		}
 	}
 }
@@ -435,13 +422,22 @@ func (c *CallbackHandler) setOutputMessageAttributes(span trace.Span, message *s
 	if message == nil {
 		return
 	}
-	span.SetAttributes(
-		attribute.String("gen_ai.output.role", string(message.Role)),
-		attribute.String("gen_ai.output.content", message.Content),
-	)
+	observationOutput := extractObservationOutput(message)
+	if observationOutput != "" {
+		span.SetAttributes(attribute.String("langfuse.observation.output", observationOutput))
+	}
+	outputText := extractOutputText(message)
+	if outputText != "" {
+		if isRoot {
+			span.SetAttributes(attribute.String("langfuse.trace.output", outputText))
+		}
+	}
+	for key, value := range extractObservationMetadata(message) {
+		span.SetAttributes(attribute.String("langfuse.observation.metadata."+key, value))
+	}
 	if isRoot {
-		if raw, ok := marshalToString(message); ok {
-			span.SetAttributes(attribute.String("gen_ai.output", raw))
+		for key, value := range extractObservationMetadata(message) {
+			span.SetAttributes(attribute.String("langfuse.trace.metadata."+key, value))
 		}
 	}
 }

@@ -120,8 +120,72 @@ func TestLangfuseOTELCallbackStream(t *testing.T) {
 	spans := recorder.Ended()
 	assert.Len(t, spans, 1)
 	assert.Equal(t, "stream-node", spans[0].Name())
-	assert.True(t, hasAttributeKey(spans[0].Attributes(), "gen_ai.input"))
-	assert.True(t, hasAttributeKey(spans[0].Attributes(), "gen_ai.output"))
+	assert.True(t, hasAttributeKey(spans[0].Attributes(), "langfuse.trace.input"))
+	assert.True(t, hasAttributeKey(spans[0].Attributes(), "langfuse.trace.output"))
+	assert.False(t, hasAttributeKey(spans[0].Attributes(), "gen_ai.output"))
+}
+
+func TestExtractMessageOutput_PrefersGroundedAnswer(t *testing.T) {
+	message := &schema.Message{
+		Role:    schema.Assistant,
+		Content: "",
+		ToolCalls: []schema.ToolCall{{
+			ID:   "call-1",
+			Type: "function",
+			Function: schema.FunctionCall{
+				Name:      "submit_grounded_answer",
+				Arguments: `{"answer":"final answer","selected_chunk_ids":["a","b"]}`,
+			},
+		}},
+	}
+
+	got := extractOutputText(message)
+
+	assert.Equal(t, "final answer", got)
+}
+
+func TestExtractObservationMetadata_StripsReasoningAndRawExtra(t *testing.T) {
+	extra := map[string]any{
+		"openai-request-id": "req-1",
+		"reasoning-content": "hidden reasoning",
+		"other":             map[string]any{"nested": true},
+	}
+
+	message := &schema.Message{Extra: extra}
+	got := extractObservationMetadata(message)
+
+	assert.Equal(t, "req-1", got["openai_request_id"])
+	_, hasReasoning := got["reasoning_content"]
+	assert.False(t, hasReasoning)
+	_, hasOther := got["other"]
+	assert.False(t, hasOther)
+}
+
+func TestExtractObservationOutput_SerializesToolCalls(t *testing.T) {
+	message := &schema.Message{
+		Role:             schema.Assistant,
+		Content:          "partial answer",
+		ReasoningContent: "think step",
+		ResponseMeta:     &schema.ResponseMeta{FinishReason: "tool_calls"},
+		ToolCalls: []schema.ToolCall{{
+			ID:   "call-1",
+			Type: "function",
+			Function: schema.FunctionCall{
+				Name:      "retrieve_knowledge",
+				Arguments: `{"queries":["BCIM3等候期多久"]}`,
+			},
+		}},
+	}
+
+	raw := extractObservationOutput(message)
+
+	assert.NotEmpty(t, raw)
+	assert.Contains(t, raw, `"content":"partial answer"`)
+	assert.Contains(t, raw, `"reasoning_content":"think step"`)
+	assert.Contains(t, raw, `"tool_calls"`)
+	assert.Contains(t, raw, `"retrieve_knowledge"`)
+	assert.Contains(t, raw, `"queries"`)
+	assert.Contains(t, raw, `"finish_reason":"tool_calls"`)
 }
 
 func waitForEndedSpans(t *testing.T, recorder *tracetest.SpanRecorder, want int) {
